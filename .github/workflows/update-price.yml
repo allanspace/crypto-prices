@@ -1,1 +1,68 @@
+name: Update Crypto Prices
 
+on:
+  schedule:
+    # 每5分钟运行一次 (UTC时间)
+    - cron: '*/5 * * * *'
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  update-prices:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          pip install requests
+
+      - name: Fetch prices from Binance Futures
+        run: |
+          import requests
+          import json
+          import time
+
+          url = "https://fapi.binance.com/fapi/v1/ticker/price"
+          try:
+              resp = requests.get(url, timeout=10)
+              resp.raise_for_status()
+              data = resp.json()
+
+              # 转换为 {symbol: price} 字典，方便使用
+              price_dict = {item['symbol']: item['price'] for item in data}
+
+              # 添加更新时间戳（UTC）
+              result = {
+                  "updated_at": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
+                  "count": len(price_dict),
+                  "prices": price_dict
+              }
+
+              with open("prices.json", "w", encoding="utf-8") as f:
+                  json.dump(result, f, ensure_ascii=False, indent=2)
+
+              print(f"Fetched {len(price_dict)} symbols.")
+          except Exception as e:
+              print("Error:", e)
+              # 如果失败，保留旧文件或创建空文件避免中断
+              with open("prices.json", "w") as f:
+                  json.dump({"error": str(e), "updated_at": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())}, f)
+        shell: python
+
+      - name: Commit and push if changed
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add prices.json
+          if ! git diff --staged --quiet; then
+            git commit -m "chore: auto-update prices at $(date -u)"
+            git push
+          else
+            echo "No changes detected. Skipping push."
+          fi
