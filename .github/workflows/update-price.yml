@@ -43,7 +43,7 @@ jobs:
 
           try:
               print('Fetching swap tickers from OKX...')
-              resp = requests.get(url, headers=headers, timeout=10)
+              resp = requests.get(url, headers=headers, timeout=20)
               resp.raise_for_status()
               data = resp.json()
 
@@ -52,8 +52,8 @@ jobs:
 
               price_dict = {}
               for item in data['data']:
-                  inst_id = item['instId']      # e.g., BTC-USDT-SWAP
-                  last_price = item['last']     # latest price as string
+                  inst_id = item['instId']
+                  last_price = item['last']
                   price_dict[inst_id] = last_price
 
               result = {
@@ -85,8 +85,10 @@ jobs:
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add prices.json
           if ! git diff --staged --quiet; then
-            git commit -m \"chore: auto-update OKX prices at $(date -u)\"
+            # 使用安全的时间格式，避免 Git pathspec 错误
+            COMMIT_MSG="chore: auto-update OKX prices at $(date +'%Y-%m-%d %H:%M:%S UTC')"
+            git commit -m "$COMMIT_MSG"
             git push
           else
-            echo \"No changes detected. Skipping push.\"
+            echo "No changes detected. Skipping push."
           fi
