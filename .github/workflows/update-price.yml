@@ -1,10 +1,11 @@
 name: Update Crypto Prices
 
 on:
+  push:
+    branches: [ main ]
   schedule:
-    # 每5分钟运行一次 (UTC时间)
     - cron: '*/5 * * * *'
-  workflow_dispatch:  # 允许手动触发
+  workflow_dispatch:
 
 jobs:
   update-prices:
@@ -34,10 +35,7 @@ jobs:
               resp.raise_for_status()
               data = resp.json()
 
-              # 转换为 {symbol: price} 字典，方便使用
               price_dict = {item['symbol']: item['price'] for item in data}
-
-              # 添加更新时间戳（UTC）
               result = {
                   "updated_at": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
                   "count": len(price_dict),
@@ -49,11 +47,9 @@ jobs:
 
               print(f"Fetched {len(price_dict)} symbols.")
           except Exception as e:
-              print("Error:", e)
-              # 如果失败，保留旧文件或创建空文件避免中断
+              print("Error:", str(e))
               with open("prices.json", "w") as f:
                   json.dump({"error": str(e), "updated_at": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())}, f)
-        shell: python
 
       - name: Commit and push if changed
         run: |
